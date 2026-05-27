@@ -28,3 +28,10 @@ MIT open source [license](http://opensource.org/licenses/MIT).
 > 
 >
 > ---
+
+
+Tasks:
+1. code
+2. cad
+3. github
+4. Have fun
