@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lumen Lab — Space Invaders</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Nunito:wght@900&display=swap');
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: #0a0a0f;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: 'Orbitron', monospace;
+  overflow: hidden;
+}
+
+#ui {
+  width: 580px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 2px 8px;
+}
+
+#ui-score {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ui-label { font-size: 8px; color: #555; letter-spacing: 2px; }
+.ui-value { font-size: 18px; color: #fff; letter-spacing: 1px; }
+
+#ui-lives {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ui-label-r { font-size: 8px; color: #555; letter-spacing: 2px; margin-right: 4px; }
+
+#canvas {
+  display: block;
+  border: 1px solid #1a1a2a;
+  box-shadow: 0 0 60px rgba(66,133,244,0.08);
+}
+
+/* Overlay */
+#overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: rgba(10,10,15,0.94);
+  backdrop-filter: blur(6px);
+  z-index: 10;
+}
+
+#ov-logo {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 900;
+  font-size: 48px;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+.c1{color:#4285f4}.c2{color:#ea4335}.c3{color:#fbbc05}.c4{color:#4285f4}.c5{color:#34a853}.c6{color:#ea4335}.c7{color:#4285f4}.c8{color:#fbbc05}.c9{color:#34a853}
+
+#ov-title {
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: #666;
+}
+
+#ov-table {
+  background: #111118;
+  border: 1px solid #222230;
+  border-radius: 8px;
+  padding: 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 10px;
+  min-width: 260px;
+}
+.ov-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 40px;
+  color: #ccc;
+}
+.ov-pts { color: #fff; font-size: 9px; letter-spacing: 1px; }
+
+#play-btn {
+  background: #4285f4;
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  padding: 13px 40px;
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  cursor: pointer;
+  box-shadow: 0 4px 24px rgba(66,133,244,0.4);
+  transition: transform 0.12s, box-shadow 0.12s;
+  animation: bob 2s ease-in-out infinite;
+}
+#play-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(66,133,244,0.5);
+}
+
+.ov-hint {
+  font-size: 9px;
+  color: #444;
+  letter-spacing: 2px;
+}
+
+@keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <div id="ui-score">
+    <div class="ui-label">SCORE</div>
+    <div class="ui-value" id="score-val">0</div>
+  </div>
+  <div id="ui-score">
+    <div class="ui-label">BEST</div>
+    <div class="ui-value" id="hiscore-val">0</div>
+  </div>
+  <div id="ui-lives">
+    <span class="ui-label-r">LIVES</span>
+    <canvas id="lives-canvas" width="90" height="22"></canvas>
+  </div>
+</div>
+
+<canvas id="canvas" width="580" height="500"></canvas>
+
+<div id="overlay">
+  <div id="ov-logo">
+    <span class="c1">L</span><span class="c2">u</span><span class="c3">m</span><span class="c4">e</span><span class="c5">n</span>&nbsp;<span class="c6">L</span><span class="c7">a</span><span class="c8">b</span>
+  </div>
+  <div id="ov-title">SPACE INVADERS</div>
+
+  <div id="ov-table">
+    <div class="ov-row"><span>🛸 &nbsp;MYSTERY SHIP</span><span class="ov-pts">??? PTS</span></div>
+    <div class="ov-row"><span>👾 &nbsp;= 30 PTS</span><span class="ov-pts" style="color:#ea4335">TOP ROW</span></div>
+    <div class="ov-row"><span>👾 &nbsp;= 20 PTS</span><span class="ov-pts" style="color:#fbbc05">MID ROWS</span></div>
+    <div class="ov-row"><span>👾 &nbsp;= 10 PTS</span><span class="ov-pts" style="color:#34a853">BOTTOM ROWS</span></div>
+  </div>
+
+  <button id="play-btn">PLAY NOW</button>
+  <div class="ov-hint">← → MOVE &nbsp;·&nbsp; SPACE SHOOT</div>
+</div>
+
+<script>
+const canvas   = document.getElementById('canvas');
+const ctx      = canvas.getContext('2d');
+const livesC   = document.getElementById('lives-canvas');
+const livesCtx = livesC.getContext('2d');
+const overlay  = document.getElementById('overlay');
+const scoreEl   = document.getElementById('score-val');
+const hiscoreEl = document.getElementById('hiscore-val');
+let hiScore = parseInt(localStorage.getItem('llInvHiScore')||'0',10);
+hiscoreEl.textContent = hiScore;
+
+const W = canvas.width, H = canvas.height;
+
+const C = {
+  blue:'#4285f4', red:'#ea4335', yellow:'#fbbc05',
+  green:'#34a853', purple:'#a855f7', orange:'#ff6d00',
+};
+const ROW_COLORS = [C.red, C.orange, C.yellow, C.green, C.blue];
+const LETTER_COLORS = [C.blue,C.red,C.yellow,C.blue,C.green,C.red,C.blue,C.yellow];
+const BASE_LETTERS  = ['L','U','M','E','N','L','A','B'];
+
+// ── Sprites ──────────────────────────────────────────────────────────
+const SP = {
+  A:[[0,0,1,0,0,0,1,0],[0,0,0,1,1,1,0,0],[0,1,1,1,1,1,1,0],[1,1,0,1,1,0,1,1],[1,1,1,1,1,1,1,1],[0,1,1,1,1,1,1,0],[0,1,0,0,0,0,1,0],[0,0,1,0,0,1,0,0]],
+  B:[[0,1,0,0,0,0,1,0],[1,0,1,0,0,1,0,1],[1,1,1,1,1,1,1,1],[1,1,0,1,1,0,1,1],[1,1,1,1,1,1,1,1],[0,1,0,1,1,0,1,0],[1,0,0,0,0,0,0,1],[0,1,0,0,0,0,1,0]],
+  C:[[0,0,0,1,1,0,0,0],[0,1,1,1,1,1,1,0],[1,1,1,1,1,1,1,1],[1,1,0,1,1,0,1,1],[1,1,1,1,1,1,1,1],[0,0,1,0,0,1,0,0],[0,1,0,1,1,0,1,0],[1,0,1,0,0,1,0,1]],
+  UFO:[[0,0,0,1,1,1,1,0,0,0],[0,1,1,1,1,1,1,1,1,0],[1,1,0,1,0,0,1,0,1,1],[1,0,1,0,1,1,0,1,0,1],[1,1,1,1,1,1,1,1,1,1],[0,0,1,1,1,1,1,1,0,0],[0,0,0,1,0,0,1,0,0,0]],
+  SHIP:[[0,0,0,0,1,0,0,0,0],[0,0,0,1,1,1,0,0,0],[0,0,0,1,1,1,0,0,0],[0,1,1,1,1,1,1,1,0],[1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1]],
+};
+
+function drawSprite(sp, x, y, scale, color, flipX=false) {
+  ctx.fillStyle = color;
+  for (let r=0; r<sp.length; r++)
+    for (let c=0; c<sp[r].length; c++) {
+      if (!sp[r][c]) continue;
+      const dc = flipX ? sp[r].length-1-c : c;
+      ctx.fillRect(x+dc*scale, y+r*scale, scale, scale);
+    }
+}
+
+// 5×7 pixel font
+const FONT5 = {
+  L:[[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
+  U:[[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+  M:[[1,0,0,0,1],[1,1,0,1,1],[1,0,1,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+  E:[[1,1,1,1,1],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
+  N:[[1,0,0,0,1],[1,1,0,0,1],[1,0,1,0,1],[1,0,0,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+  A:[[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+  B:[[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0]],
+};
+
+function drawLetter(letter, x, y, scale, color, alpha=1) {
+  const g = FONT5[letter]; if (!g) return;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  for (let r=0; r<g.length; r++)
+    for (let c=0; c<g[r].length; c++)
+      if (g[r][c]) ctx.fillRect(x+c*scale, y+r*scale, scale, scale);
+  ctx.globalAlpha = 1;
+}
+
+// ── State ─────────────────────────────────────────────────────────────
+let score, lives, level, state='title';
+let player, bullets, invaders, invBullets;
+let invDir, invMoveTimer, invMoveInterval;
+let ufo, ufoTimer;
+let baseLetters;
+let explosions, particles;
+let keys={}, shootCooldown=0, lastTime=0, playerFlash=0;
+
+function init(keepScore=false) {
+  score  = keepScore ? score : 0;
+  lives  = keepScore ? lives : 3;
+  level  = keepScore ? level : 1;
+  state  = 'playing';
+
+  player      = { x:W/2-18, y:H-36, w:36, h:22, speed:220 };
+  bullets     = [];
+  invBullets  = [];
+  explosions  = [];
+  particles   = [];
+  ufo         = null;
+  ufoTimer    = 0;
+  playerFlash = 0;
+  shootCooldown = 0;
+
+  invDir          = 1;
+  invMoveInterval = Math.max(100 - level*8, 22);
+  invMoveTimer    = 0;
+
+  // Invaders: 5 rows × 10 cols — fixed vertical positions, never move down
+  invaders = [];
+  const cols=10, rows=5, gapX=48, gapY=36, startX=46, startY=52;
+  for (let r=0; r<rows; r++) {
+    const type  = r===0?'A': r<3?'B':'C';
+    const pts   = type==='A'?30: type==='B'?20:10;
+    const baseY = startY + r*gapY;   // fixed forever
+    for (let c=0; c<cols; c++) {
+      invaders.push({
+        x:startX+c*gapX, y:baseY,
+        w:28, h:22, type, pts,
+        alive:true, frame:0,
+        color:ROW_COLORS[r]
+      });
+    }
+  }
+
+  // LUMENLAB shield letters — midfield between invaders and player
+  const totalW = BASE_LETTERS.length*36 + (BASE_LETTERS.length-1)*10;
+  const bx0 = (W-totalW)/2;
+  baseLetters = BASE_LETTERS.map((lt,i) => ({
+    letter:lt, x:bx0+i*46, y:H-145,
+    hp:3, maxHp:3, color:LETTER_COLORS[i],
+  }));
+
+  updateHUD();
+}
+
+function updateHUD() {
+  scoreEl.textContent = score;
+  if (score > hiScore) {
+    hiScore = score;
+    localStorage.setItem('llInvHiScore', hiScore);
+    hiscoreEl.textContent = hiScore;
+  }
+  drawLivesHUD();
+}
+
+function drawLivesHUD() {
+  livesCtx.clearRect(0,0,90,22);
+  for (let i=0; i<lives; i++) {
+    // tiny ship icon
+    livesCtx.fillStyle = i < lives ? '#4285f4' : '#333';
+    const sx = i*28, sy=0, sc=2;
+    const s = SP.SHIP;
+    for (let r=0; r<s.length; r++)
+      for (let c=0; c<s[r].length; c++)
+        if (s[r][c]) livesCtx.fillRect(sx+c*sc, sy+r*sc, sc, sc);
+  }
+}
+
+// ── Input ─────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  keys[e.code]=true;
+  if (['Space','ArrowLeft','ArrowRight','ArrowUp'].includes(e.code)) e.preventDefault();
+  if (e.code==='Enter' && state==='dead') restartGame();
+});
+document.addEventListener('keyup', e => keys[e.code]=false);
+
+document.getElementById('play-btn').addEventListener('click', () => {
+  overlay.style.display='none';
+  init(false);
+  lastTime=performance.now();
+  requestAnimationFrame(loop);
+});
+
+function restartGame() {
+  overlay.style.display='none';
+  init(false);
+  lastTime=performance.now();
+  requestAnimationFrame(loop);
+}
+
+// ── Loop ──────────────────────────────────────────────────────────────
+function loop(ts) {
+  const dt = Math.min((ts-lastTime)/1000, 0.05);
+  lastTime=ts;
+  update(dt);
+  draw();
+  if (state==='playing') requestAnimationFrame(loop);
+}
+
+function overlap(a,b) {
+  return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y;
+}
+
+function burst(x, y, color, n=10) {
+  for (let i=0; i<n; i++) {
+    const a=Math.random()*Math.PI*2, s=40+Math.random()*90;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:1.5+Math.random()*2.5,
+      t:0.5+Math.random()*0.3,life:0.5+Math.random()*0.3,color});
+  }
+}
+
+function update(dt) {
+  playerFlash = Math.max(0, playerFlash-dt);
+
+  // Player
+  if (keys['ArrowLeft'])  player.x = Math.max(0, player.x-player.speed*dt);
+  if (keys['ArrowRight']) player.x = Math.min(W-player.w, player.x+player.speed*dt);
+
+  // Shoot
+  shootCooldown -= dt;
+  if ((keys['Space']||keys['ArrowUp']) && shootCooldown<=0 && bullets.length<2) {
+    bullets.push({x:player.x+player.w/2-2, y:player.y-6, w:4, h:14, speed:500});
+    shootCooldown=0.18;
+  }
+  bullets = bullets.filter(b => { b.y-=b.speed*dt; return b.y>-20; });
+
+  // ── Invader movement: LEFT/RIGHT ONLY, no downward step ──────────
+  const alive = invaders.filter(i=>i.alive);
+  invMoveTimer += dt*1000;
+  const stepSpeed = Math.max(18, invMoveInterval-(50-alive.length)*1.8);
+
+  if (invMoveTimer >= stepSpeed) {
+    invMoveTimer = 0;
+    let hitWall = false;
+    alive.forEach(inv => {
+      if (inv.x+8*invDir<4 || inv.x+inv.w+8*invDir>W-4) hitWall=true;
+    });
+    if (hitWall) {
+      invDir *= -1;   // reverse direction — NO y change
+    }
+    alive.forEach(inv => { inv.x+=8*invDir; inv.frame^=1; });
+  }
+
+  // Invader shoot
+  if (Math.random()<0.035*level && invBullets.length<5) {
+    const cols={};
+    alive.forEach(inv => {
+      const col=Math.round(inv.x/48);
+      if (!cols[col]||inv.y>cols[col].y) cols[col]=inv;
+    });
+    const shooters=Object.values(cols);
+    if (shooters.length) {
+      const s=shooters[Math.floor(Math.random()*shooters.length)];
+      invBullets.push({x:s.x+s.w/2-2,y:s.y+s.h,w:4,h:12,speed:140+level*20,color:s.color});
+    }
+  }
+  invBullets = invBullets.filter(b => { b.y+=b.speed*dt; return b.y<H+20; });
+
+  // UFO
+  ufoTimer+=dt;
+  if (!ufo && ufoTimer>18+Math.random()*14) {
+    ufoTimer=0;
+    ufo={x:-60,y:22,speed:110,dir:1,color:C.purple};
+    if (Math.random()<0.5){ufo.x=W+60;ufo.dir=-1;}
+  }
+  if (ufo){
+    ufo.x+=ufo.speed*ufo.dir*dt;
+    if (ufo.x>W+80||ufo.x<-80) ufo=null;
+  }
+
+  // Player bullet ↔ base letters
+  for (let bi=bullets.length-1; bi>=0; bi--) {
+    const b=bullets[bi]; let hit=false;
+    for (const bl of baseLetters) {
+      if (bl.hp<=0) continue;
+      if (overlap(b,{x:bl.x,y:bl.y,w:30,h:34})) {
+        bl.hp--; bullets.splice(bi,1);
+        burst(bl.x+15,bl.y+17,bl.color,6); hit=true; break;
+      }
+    }
+    if (hit) continue;
+  }
+
+  // Bullet ↔ invader
+  for (let bi=bullets.length-1; bi>=0; bi--) {
+    const b=bullets[bi];
+    for (const inv of invaders) {
+      if (!inv.alive) continue;
+      if (overlap(b,{x:inv.x,y:inv.y,w:inv.w,h:inv.h})) {
+        inv.alive=false; score+=inv.pts;
+        bullets.splice(bi,1);
+        burst(inv.x+inv.w/2, inv.y+inv.h/2, inv.color, 12);
+        explosions.push({x:inv.x+inv.w/2,y:inv.y+inv.h/2,t:0.45,maxT:0.45,color:inv.color});
+        updateHUD(); break;
+      }
+    }
+  }
+
+  // Bullet ↔ UFO
+  for (let bi=bullets.length-1; bi>=0; bi--) {
+    if (!ufo) break;
+    if (overlap(bullets[bi],{x:ufo.x,y:ufo.y,w:44,h:22})) {
+      const pts=[50,100,150,300][Math.floor(Math.random()*4)];
+      score+=pts; burst(ufo.x+22,ufo.y+11,C.purple,18);
+      explosions.push({x:ufo.x+22,y:ufo.y+11,t:0.6,maxT:0.6,pts,color:C.purple});
+      ufo=null; bullets.splice(bi,1); updateHUD();
+    }
+  }
+
+  // Invader bullet ↔ base letters
+  for (let bi=invBullets.length-1; bi>=0; bi--) {
+    const b=invBullets[bi]; let hit=false;
+    for (const bl of baseLetters) {
+      if (bl.hp<=0) continue;
+      if (overlap(b,{x:bl.x,y:bl.y,w:30,h:34})) {
+        bl.hp--; invBullets.splice(bi,1);
+        burst(bl.x+15,bl.y+17,bl.color,6); hit=true; break;
+      }
+    }
+  }
+
+  // Invader bullet ↔ player
+  for (let bi=invBullets.length-1; bi>=0; bi--) {
+    const b=invBullets[bi];
+    if (overlap(b,{x:player.x,y:player.y,w:player.w,h:player.h})) {
+      invBullets.splice(bi,1); lives--;
+      burst(player.x+player.w/2,player.y+player.h/2,C.blue,16);
+      explosions.push({x:player.x+player.w/2,y:player.y+player.h/2,t:0.7,maxT:0.7,color:C.blue});
+      playerFlash=1.2; updateHUD();
+      if (lives<=0){ endGame(); return; }
+    }
+  }
+
+  // All letters destroyed → game over
+  if (baseLetters.every(l=>l.hp<=0)){ endGame(); return; }
+
+  // All invaders dead → next level
+  if (alive.length===0){ level++; init(true); return; }
+
+  // Particles & explosions
+  particles = particles.filter(p=>{
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=80*dt; p.t-=dt; return p.t>0;
+  });
+  explosions = explosions.filter(e=>{ e.t-=dt; return e.t>0; });
+}
+
+function endGame() {
+  state='dead';
+  overlay.style.display='flex';
+  overlay.innerHTML=`
+    <div id="ov-logo" style="font-family:'Nunito',sans-serif;font-weight:900;font-size:48px;letter-spacing:-1px">
+      <span class="c1">L</span><span class="c2">u</span><span class="c3">m</span><span class="c4">e</span><span class="c5">n</span>&nbsp;<span class="c6">L</span><span class="c7">a</span><span class="c8">b</span>
+    </div>
+    <div id="ov-title" style="font-size:11px;letter-spacing:4px;color:#666">GAME OVER</div>
+    <div style="font-size:22px;color:#fff;letter-spacing:1px">${score}</div>
+    ${score>=hiScore&&score>0?'<div style="font-size:9px;color:#fbbc05;letter-spacing:3px">★ NEW BEST ★</div>':'<div style="font-size:9px;color:#555;letter-spacing:2px">BEST: '+hiScore+'</div>'}
+    <button onclick="restartGame()" style="background:#4285f4;color:#fff;border:none;border-radius:24px;padding:13px 40px;font-family:'Orbitron',monospace;font-size:11px;letter-spacing:3px;cursor:pointer;box-shadow:0 4px 24px rgba(66,133,244,.4)">PLAY AGAIN</button>
+    <div style="font-size:9px;color:#444;letter-spacing:2px">← → MOVE &nbsp;·&nbsp; SPACE SHOOT</div>
+  `;
+}
+
+// ── Draw ──────────────────────────────────────────────────────────────
+function draw() {
+  // Space background
+  ctx.fillStyle='#06060e';
+  ctx.fillRect(0,0,W,H);
+
+  // Stars
+  ctx.fillStyle='rgba(255,255,255,0.55)';
+  for (let i=0;i<80;i++) {
+    const sx=(i*137+23)%W, sy=(i*97+11)%H;
+    ctx.fillRect(sx,sy,i%5===0?2:1,i%5===0?2:1);
+  }
+
+  // UFO
+  if (ufo) {
+    drawSprite(SP.UFO,ufo.x,ufo.y,4,C.purple);
+    ctx.save(); ctx.globalAlpha=0.12; ctx.fillStyle=C.purple;
+    ctx.beginPath(); ctx.ellipse(ufo.x+20,ufo.y+11,34,14,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  // Invaders
+  invaders.forEach(inv=>{
+    if (!inv.alive) return;
+    drawSprite(SP[inv.type],inv.x,inv.y,3,inv.color,inv.frame===1);
+  });
+
+  // LUMENLAB shield letters
+  const sc=4;
+  baseLetters.forEach(bl=>{
+    if (bl.hp<=0) return;
+    const alpha = 0.3+(bl.hp/bl.maxHp)*0.7;
+    drawLetter(bl.letter, bl.x, bl.y, sc, bl.color, alpha);
+    // HP pips below each letter
+    for (let i=0;i<bl.maxHp;i++){
+      ctx.globalAlpha=0.8;
+      ctx.fillStyle=i<bl.hp?bl.color:'#222';
+      ctx.beginPath(); ctx.arc(bl.x+i*7+3,bl.y+36,2.5,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  });
+
+  // Player
+  if (playerFlash<=0||Math.floor(playerFlash*10)%2===0)
+    drawSprite(SP.SHIP,player.x,player.y,4,C.blue);
+
+  // Player bullets
+  bullets.forEach((b,i)=>{
+    const c=[C.blue,C.red,C.yellow,C.green][i%4];
+    ctx.fillStyle=c;
+    ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,2); ctx.fill();
+    ctx.globalAlpha=0.2; ctx.fillStyle=c;
+    ctx.beginPath(); ctx.roundRect(b.x-2,b.y-2,b.w+4,b.h+4,4); ctx.fill();
+    ctx.globalAlpha=1;
+  });
+
+  // Invader bullets
+  invBullets.forEach(b=>{
+    ctx.fillStyle=b.color||C.red;
+    ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,2); ctx.fill();
+  });
+
+  // Particles
+  particles.forEach(p=>{
+    ctx.globalAlpha=p.t/p.life;
+    ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  // Explosions
+  explosions.forEach(e=>{
+    const prog=1-e.t/e.maxT;
+    const r=Math.max(0,prog*28);
+    ctx.save();
+    ctx.globalAlpha=e.t/e.maxT*0.9;
+    ctx.strokeStyle=e.color; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(e.x,e.y,r,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=e.t/e.maxT*0.35;
+    ctx.fillStyle=e.color;
+    ctx.beginPath(); ctx.arc(e.x,e.y,r*0.5,0,Math.PI*2); ctx.fill();
+    if (e.pts){
+      ctx.globalAlpha=e.t/e.maxT;
+      ctx.fillStyle=e.color;
+      ctx.font='bold 10px Orbitron,monospace';
+      ctx.fillText('+'+e.pts,e.x-14,e.y-r-6);
+    }
+    ctx.restore();
+  });
+
+  // Bottom line
+  ctx.fillStyle='#4285f4';
+  ctx.globalAlpha=0.35;
+  ctx.fillRect(0,H-8,W,2);
+  ctx.globalAlpha=1;
+}
+
+// Boot frame
+ctx.fillStyle='#06060e'; ctx.fillRect(0,0,W,H);
+drawLivesHUD();
+</script>
+</body>
+</html>

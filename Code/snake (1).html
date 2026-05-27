@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNAKE</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green: #00ff41;
+    --green-dim: #00cc33;
+    --green-dark: #003b0f;
+    --green-glow: #00ff4166;
+    --bg: #020a04;
+    --grid: #0a1f0d;
+    --food: #ff3c3c;
+    --food-glow: #ff3c3c88;
+    --head: #ffffff;
+    --score-color: #00ff41;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* CRT scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* CRT vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.7) 100%);
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  #wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* Header */
+  #header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0 2px 10px;
+  }
+
+  #title {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    color: var(--green);
+    text-shadow: 0 0 10px var(--green-glow), 0 0 20px var(--green-glow);
+  }
+
+  #scores {
+    display: flex;
+    gap: 24px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--green-dim);
+  }
+
+  #scores span { color: var(--green); font-size: 14px; }
+
+  /* Canvas container */
+  #canvas-wrap {
+    position: relative;
+    border: 1px solid var(--green-dim);
+    box-shadow:
+      0 0 0 1px var(--green-dark),
+      0 0 20px var(--green-glow),
+      inset 0 0 40px rgba(0,255,65,0.03);
+  }
+
+  canvas { display: block; }
+
+  /* Overlay screens */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(2, 10, 4, 0.88);
+    gap: 16px;
+  }
+
+  .overlay h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 6px;
+    color: var(--green);
+    text-shadow: 0 0 12px var(--green-glow), 0 0 30px var(--green-glow);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .overlay .sub {
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: var(--green-dim);
+  }
+
+  .overlay .final-score {
+    font-family: 'Orbitron', monospace;
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--green);
+    text-shadow: 0 0 15px var(--green-glow);
+  }
+
+  .overlay .label {
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--green-dim);
+    margin-bottom: -8px;
+  }
+
+  .blink { animation: blink 1s step-end infinite; }
+
+  .key-hint {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 11px;
+    color: #005520;
+    margin-top: 8px;
+  }
+
+  .key {
+    border: 1px solid #005520;
+    padding: 2px 7px;
+    font-size: 11px;
+    color: #008830;
+  }
+
+  /* Footer */
+  #footer {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 2px 0;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #003b10;
+  }
+
+  #level-bar {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    color: #005520;
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    background: #005520;
+    transition: background 0.3s;
+  }
+
+  .dot.active { background: var(--green); box-shadow: 0 0 4px var(--green-glow); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* Mobile controls */
+  #mobile-controls {
+    display: none;
+    margin-top: 16px;
+    gap: 4px;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .ctrl-row { display: flex; gap: 4px; }
+
+  .ctrl-btn {
+    width: 52px; height: 52px;
+    background: transparent;
+    border: 1px solid #005520;
+    color: #008830;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.1s, color 0.1s, background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
+  }
+
+  .ctrl-btn:active {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(0,255,65,0.08);
+  }
+
+  @media (max-width: 600px), (pointer: coarse) {
+    #mobile-controls { display: flex; }
+  }
+
+  /* WebSocket indicator */
+  #ws-status {
+    position: absolute;
+    top: 6px; right: 8px;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #003b10;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  #ws-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #003b10;
+    transition: background 0.3s;
+  }
+
+  #ws-dot.connected { background: var(--green); box-shadow: 0 0 4px var(--green-glow); }
+</style>
+</head>
+<body>
+<div id="wrapper">
+  <div id="header">
+    <div id="title">SNAKE</div>
+    <div id="scores">
+      SCORE <span id="score-display">0</span>
+      &nbsp;&nbsp;BEST <span id="hi-display">0</span>
+    </div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+
+    <div id="ws-status">
+      <div id="ws-dot"></div>
+      <span id="ws-label">EMG</span>
+    </div>
+
+    <!-- Start screen -->
+    <div class="overlay" id="start-screen">
+      <h2>SNAKE</h2>
+      <div class="sub">VERSION 1.0</div>
+      <div style="height:16px"></div>
+      <div class="sub blink">PRESS SPACE OR ANY ARROW KEY</div>
+      <div class="key-hint">
+        <div class="key">↑</div><div class="key">↓</div><div class="key">←</div><div class="key">→</div>
+        <span style="margin-left:4px;color:#005520">TO MOVE</span>
+      </div>
+    </div>
+
+    <!-- Game over screen -->
+    <div class="overlay" id="gameover-screen" style="display:none">
+      <div class="label">FINAL SCORE</div>
+      <div class="final-score" id="final-score">0</div>
+      <div class="sub" id="hi-msg"></div>
+      <div style="height:8px"></div>
+      <div class="sub blink">PRESS SPACE TO RESTART</div>
+    </div>
+  </div>
+
+  <!-- Level dots -->
+  <div id="footer">
+    <div id="level-bar">
+      LVL&nbsp;
+      <div class="dot active" id="d1"></div>
+      <div class="dot" id="d2"></div>
+      <div class="dot" id="d3"></div>
+      <div class="dot" id="d4"></div>
+      <div class="dot" id="d5"></div>
+      <div class="dot" id="d6"></div>
+      <div class="dot" id="d7"></div>
+      <div class="dot" id="d8"></div>
+    </div>
+    <div id="length-display">LENGTH: 1</div>
+  </div>
+
+  <div id="mobile-controls">
+    <div class="ctrl-row">
+      <div class="ctrl-btn" id="btn-up">&#9650;</div>
+    </div>
+    <div class="ctrl-row">
+      <div class="ctrl-btn" id="btn-left">&#9664;</div>
+      <div class="ctrl-btn" id="btn-down">&#9660;</div>
+      <div class="ctrl-btn" id="btn-right">&#9654;</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLS = 25, ROWS = 25;
+const CELL = 20;
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width  = COLS * CELL;
+canvas.height = ROWS * CELL;
+
+// --- State ---
+let snake, dir, nextDir, food, score, hiScore, running, started, dead, level, gameLoop, foodAnim;
+
+const SPEEDS = [130, 115, 100, 88, 76, 65, 56, 48]; // ms per tick
+
+function init() {
+  snake = [
+    {x:12, y:12}, {x:11, y:12}, {x:10, y:12}
+  ];
+  dir     = {x:1, y:0};
+  nextDir = {x:1, y:0};
+  score   = 0;
+  level   = 1;
+  dead    = false;
+  placeFood();
+  updateUI();
+  drawFrame();
+}
+
+function placeFood() {
+  let pos;
+  do {
+    pos = { x: Math.floor(Math.random()*COLS), y: Math.floor(Math.random()*ROWS) };
+  } while (snake.some(s => s.x===pos.x && s.y===pos.y));
+  food = pos;
+  foodAnim = 0;
+}
+
+// --- Game loop ---
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('gameover-screen').style.display = 'none';
+  started = true; running = true;
+  clearInterval(gameLoop);
+  gameLoop = setInterval(tick, SPEEDS[level-1]);
+}
+
+function tick() {
+  if (!running) return;
+
+  dir = {...nextDir};
+  const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+  // Wrap around walls
+  head.x = (head.x + COLS) % COLS;
+  head.y = (head.y + ROWS) % ROWS;
+  // Self collision
+  if (snake.some(s => s.x===head.x && s.y===head.y)) { die(); return; }
+
+  snake.unshift(head);
+
+  if (head.x===food.x && head.y===food.y) {
+    score++;
+    const newLevel = Math.min(8, 1 + Math.floor(score / 5));
+    if (newLevel !== level) {
+      level = newLevel;
+      clearInterval(gameLoop);
+      gameLoop = setInterval(tick, SPEEDS[level-1]);
+    }
+    placeFood();
+    updateUI();
+  } else {
+    snake.pop();
+  }
+
+  foodAnim = (foodAnim + 1) % 30;
+  drawFrame();
+}
+
+function die() {
+  running = false; dead = true;
+  clearInterval(gameLoop);
+  if (score > hiScore) hiScore = score;
+  drawFrame();
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('hi-msg').textContent = score >= hiScore && score > 0 ? '★ NEW BEST ★' : 'BEST: ' + hiScore;
+  document.getElementById('gameover-screen').style.display = 'flex';
+}
+
+// --- Drawing ---
+const GREEN      = '#00ff41';
+const GREEN_DIM  = '#00cc33';
+const GREEN_DARK = '#003b0f';
+const BG         = '#020a04';
+const GRID_COL   = '#0a1f0d';
+const HEAD_COL   = '#ffffff';
+const FOOD_COL   = '#ff3c3c';
+
+function drawFrame() {
+  // Background
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Grid
+  ctx.strokeStyle = GRID_COL;
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x <= COLS; x++) {
+    ctx.beginPath(); ctx.moveTo(x*CELL, 0); ctx.lineTo(x*CELL, canvas.height); ctx.stroke();
+  }
+  for (let y = 0; y <= ROWS; y++) {
+    ctx.beginPath(); ctx.moveTo(0, y*CELL); ctx.lineTo(canvas.width, y*CELL); ctx.stroke();
+  }
+
+  // Food (pulsing)
+  const pulse = 0.7 + 0.3 * Math.sin(foodAnim / 30 * Math.PI * 2);
+  const fr = food.x * CELL, ft = food.y * CELL;
+  const fp = CELL * 0.18;
+  ctx.shadowColor = FOOD_COL;
+  ctx.shadowBlur  = 10 * pulse;
+  ctx.fillStyle   = FOOD_COL;
+  ctx.fillRect(fr + fp, ft + fp, CELL - fp*2, CELL - fp*2);
+  // Inner bright dot
+  ctx.fillStyle = '#ffaaaa';
+  ctx.fillRect(fr + CELL*0.38, ft + CELL*0.38, CELL*0.25, CELL*0.25);
+  ctx.shadowBlur = 0;
+
+  // Snake
+  for (let i = snake.length - 1; i >= 0; i--) {
+    const s = snake[i];
+    const px = s.x * CELL, py = s.y * CELL;
+    const pad = i === 0 ? 1 : 2;
+
+    if (i === 0) {
+      // Head — bright white glow
+      ctx.shadowColor = HEAD_COL;
+      ctx.shadowBlur  = 8;
+      ctx.fillStyle   = HEAD_COL;
+      ctx.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
+      // Eyes
+      ctx.shadowBlur = 0;
+      ctx.fillStyle  = BG;
+      const ex = dir.x, ey = dir.y;
+      if (ex === 1)       { ctx.fillRect(px+13, py+4, 3, 3); ctx.fillRect(px+13, py+13, 3, 3); }
+      else if (ex === -1) { ctx.fillRect(px+4,  py+4, 3, 3); ctx.fillRect(px+4,  py+13, 3, 3); }
+      else if (ey === -1) { ctx.fillRect(px+4,  py+4, 3, 3); ctx.fillRect(px+13, py+4, 3, 3); }
+      else                { ctx.fillRect(px+4,  py+13, 3, 3); ctx.fillRect(px+13, py+13, 3, 3); }
+    } else {
+      const t = 1 - i / snake.length;
+      const alpha = 0.35 + 0.65 * t;
+      ctx.shadowColor = GREEN;
+      ctx.shadowBlur  = 4 * t;
+      ctx.fillStyle   = `rgba(0,${Math.floor(180 + 75*t)},${Math.floor(40 + 25*t)},${alpha})`;
+      ctx.fillRect(px + pad, py + pad, CELL - pad*2, CELL - pad*2);
+      // Inner detail for recent segments
+      if (i < snake.length * 0.5 && i > 0) {
+        ctx.fillStyle = `rgba(0,255,65,${0.15 * t})`;
+        ctx.fillRect(px + 5, py + 5, CELL - 10, CELL - 10);
+      }
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  // Dead flash
+  if (dead) {
+    ctx.fillStyle = 'rgba(255,60,60,0.06)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+// --- UI updates ---
+function updateUI() {
+  document.getElementById('score-display').textContent  = score;
+  document.getElementById('hi-display').textContent     = hiScore;
+  document.getElementById('length-display').textContent = 'LENGTH: ' + snake.length;
+  for (let i = 1; i <= 8; i++) {
+    document.getElementById('d'+i).classList.toggle('active', i <= level);
+  }
+}
+
+// --- Controls ---
+const DIRS = {
+  ArrowUp:    {x:0,  y:-1},
+  ArrowDown:  {x:0,  y:1},
+  ArrowLeft:  {x:-1, y:0},
+  ArrowRight: {x:1,  y:0},
+  w: {x:0, y:-1}, W: {x:0, y:-1},
+  s: {x:0, y:1},  S: {x:0, y:1},
+  a: {x:-1,y:0},  A: {x:-1,y:0},
+  d: {x:1, y:0},  D: {x:1, y:0}
+};
+
+document.addEventListener('keydown', e => {
+  if ((e.key === ' ' || e.code === 'Space') && (!started || dead)) {
+    init(); startGame(); return;
+  }
+  if (!started && DIRS[e.key]) { init(); startGame(); }
+  if (!running) return;
+  const d = DIRS[e.key];
+  if (!d) return;
+  // Prevent 180° reversal
+  if (d.x !== 0 && d.x === -dir.x) return;
+  if (d.y !== 0 && d.y === -dir.y) return;
+  nextDir = d;
+  e.preventDefault();
+});
+
+// Mobile buttons
+function mobileDir(dx, dy) {
+  if (!started || dead) { init(); startGame(); return; }
+  if (!running) return;
+  if (dx !== 0 && dx === -dir.x) return;
+  if (dy !== 0 && dy === -dir.y) return;
+  nextDir = {x:dx, y:dy};
+}
+
+document.getElementById('btn-up').addEventListener('touchstart',    e=>{e.preventDefault();mobileDir(0,-1);});
+document.getElementById('btn-down').addEventListener('touchstart',  e=>{e.preventDefault();mobileDir(0,1);});
+document.getElementById('btn-left').addEventListener('touchstart',  e=>{e.preventDefault();mobileDir(-1,0);});
+document.getElementById('btn-right').addEventListener('touchstart', e=>{e.preventDefault();mobileDir(1,0);});
+document.getElementById('btn-up').addEventListener('click',    ()=>mobileDir(0,-1));
+document.getElementById('btn-down').addEventListener('click',  ()=>mobileDir(0,1));
+document.getElementById('btn-left').addEventListener('click',  ()=>mobileDir(-1,0));
+document.getElementById('btn-right').addEventListener('click', ()=>mobileDir(1,0));
+
+// --- WebSocket (ESP32 EMG controller on 192.168.4.1:81) ---
+const WS_URL = 'ws://192.168.4.1:81';
+let ws, wsRetry;
+
+const wsDot   = document.getElementById('ws-dot');
+const wsLabel = document.getElementById('ws-label');
+
+function connectWS() {
+  try {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => {
+      wsDot.classList.add('connected');
+      wsLabel.textContent = 'EMG ●';
+    };
+    ws.onclose = () => {
+      wsDot.classList.remove('connected');
+      wsLabel.textContent = 'EMG';
+      wsRetry = setTimeout(connectWS, 3000);
+    };
+    ws.onerror = () => ws.close();
+    ws.onmessage = e => {
+      const msg = e.data.trim().toUpperCase();
+      const map = { LEFT:{x:-1,y:0}, RIGHT:{x:1,y:0}, UP:{x:0,y:-1}, DOWN:{x:0,y:1} };
+      const d = map[msg];
+      if (!d) return;
+      if (!started || dead) { init(); startGame(); }
+      if (!running) return;
+      if (d.x !== 0 && d.x === -dir.x) return;
+      if (d.y !== 0 && d.y === -dir.y) return;
+      nextDir = d;
+    };
+  } catch(err) {
+    wsRetry = setTimeout(connectWS, 3000);
+  }
+}
+connectWS();
+
+// --- Boot ---
+hiScore = parseInt(localStorage.getItem('snake_hi') || '0');
+document.getElementById('hi-display').textContent = hiScore;
+setInterval(() => {
+  if (running && score > hiScore) {
+    hiScore = score;
+    localStorage.setItem('snake_hi', hiScore);
+    document.getElementById('hi-display').textContent = hiScore;
+  }
+}, 1000);
+init();
+drawFrame();
+</script>
+</body>
+</html>
