@@ -1,13 +1,13 @@
 # IS2026 Summer - NeuroPixel: EMG-Controlled Accessible Gaming Console and Arcade Hub
 
-DESCRIPTION-
+**Description:**
 NeuroPixel is an accessible EMG-controlled gaming console and arcade hub designed for individuals with physical disabilities and limited mobility. Instead of traditional controllers, the system uses EMG (Electromyography) sensors to detect voluntary muscle signals from areas such as the jaw, neck, shoulders, forehead, or facial muscles. These signals are processed by a microcontroller and converted into gameplay actions like jumping, moving, shooting, or selecting options.
 
 The platform features five classic arcade-style games, including Google Chrome Dino, Flappy Bird, Pac-Man, Snake, and Space Invaders, all adapted for muscle-based interaction. NeuroPixel includes adaptive calibration, customizable sensitivity, audio feedback, and large visual indicators to ensure comfortable and accurate gameplay for users with varying levels of mobility and muscle strength.
 
 Beyond entertainment, NeuroPixel also promotes cognitive engagement, reflex improvement, concentration, and neurological response development through interactive gameplay. Built using affordable and widely available components such as MyoWare EMG sensors and ESP32/Arduino microcontrollers, the system offers a low-cost and inclusive gaming solution. NeuroPixel bridges assistive technology, rehabilitation, and recreation, enabling users with disabilities to independently enjoy digital gaming experiences.
 
-DESCRIPTION OF THE CONTENTS OF EACH FOLDER-
+**Description of the contents od each folder:**
 **CODE Folder**
 Contains all software and programming files required for NeuroPixel. This includes EMG signal processing code, ESP32 firmware, calibration algorithms, game control mapping, Bluetooth/Wi-Fi communication scripts, and accessible game integration files for Chrome Dino, Flappy Bird, Pac-Man, Snake, and Space Invaders. It also includes testing scripts, debugging utilities, and libraries used for EMG signal filtering and command recognition.
 
