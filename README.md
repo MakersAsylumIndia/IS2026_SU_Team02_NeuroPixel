@@ -46,17 +46,15 @@ MIT open source [license](http://opensource.org/licenses/MIT).
 
 ## 📬 Contact/Team
 
-> _List team members and contact emails or GitHub profiles._
-[@anool](https://github.com/Anool)
 
 [@botadaranemi-arch] (https://github.com/botadaranemi-arch)
+
+[@jatindixit3] (https://github.com/jatindixit3)
 
 [@shreyasidaga] (https://github.com/shreyasidaga)
 
 [@aryamanmehrotra1802-png] (https://github.com/aryamanmehrotra1802-png)
 
 [@atharvkirloskar] (https://github.com/atharvkirloskar)
-
-[@jatindixit3] (https://github.com/jatindixit3)
 
 > ---
